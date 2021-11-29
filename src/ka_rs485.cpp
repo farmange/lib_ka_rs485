@@ -20,13 +20,13 @@ namespace KinovaApi
     {
         api_mutex_.lock();
 
-        LOG_DEBUG_STREAM("Initialize KaRS485Api instance... (debug logging : " << std::boolalpha << debug_log << ") ...");
+        LOG_INFO_STREAM("Initialize KaRS485Api instance... (debug logging : " << std::boolalpha << debug_log << ") ...");
         if (debug_log == false)
         {
             Logger::instance().setLevel(Logger::ERROR);
         }
 
-        LOG_DEBUG_STREAM("Load kinova shared library...");
+        LOG_INFO_STREAM("Load kinova shared library...");
         //We load the API.
         comm_handler = dlopen("Kinova.API.CommLayerUbuntu.so", RTLD_NOW|RTLD_GLOBAL);
         if (comm_handler == NULL)
@@ -45,7 +45,7 @@ namespace KinovaApi
         if(fcn_ptr_init != NULL && fcn_ptr_activate != NULL && fcn_ptr_read != NULL && fcn_ptr_write != NULL)
         {
             // Initialization of the API
-            LOG_ERROR("Initialization of the API...");
+            LOG_INFO("Initialization of the API...");
             int result = fcn_ptr_init();
 
             if(result != NO_ERROR_KINOVA)
@@ -58,7 +58,7 @@ namespace KinovaApi
             //back to normal control.
             fcn_ptr_activate();
         }
-        LOG_DEBUG_STREAM("Initialisation done");
+        LOG_INFO_STREAM("Done");
 
         api_mutex_.unlock();
 
