@@ -1,0 +1,39 @@
+#Back files
+*.*~
+*.autosave
+*.orig
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+#Stuff built by rosmake
+*/build
+build/
+*/bin
+*/lib/*.so
+
+#Stuff added by make eclipse-project
+*.project
+*.pydevproject
+*.cproject
+
+#Vim swap files
+*.swp
+*.swo
+
+# Python
+*.pyc
+
+# VS code config
+.vscode/
+
