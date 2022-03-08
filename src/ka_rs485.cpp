@@ -5,10 +5,7 @@
 #include <dlfcn.h>
 #include <unistd.h>
 #include <string.h>
-// #include <iostream>
-// #include <sstream>
-// #include <sys/ioctl.h>
-// #include <linux/serial.h>
+
 using namespace std;
 
 #define RS485_MSG_GET_POSITION_COMMAND_ALL_VALUES_REPLY 2
@@ -166,7 +163,6 @@ namespace KinovaApi
             usleep(50);
             msg_receive_count = 0;
             RS485_Message dummy_rcv_msg[56] = {};
-            // RS485_Message full_rcv_msg[50] = {};
             for (int j = 0; j < MAX_READ_RETRY; j++)
             {
                 fcn_ptr_read(dummy_rcv_msg + msg_receive_count, expectedResponseMsg, nb_msg_read);
@@ -179,7 +175,6 @@ namespace KinovaApi
                 }
                 else
                 {
-                    // memcpy(full_rcv_msg + msg_receive_count, &dummy_rcv_msg, nb_msg_read * sizeof(RS485_Message));
                     msg_receive_count += nb_msg_read;
                 }
 
