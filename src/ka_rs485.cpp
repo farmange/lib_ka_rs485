@@ -1,14 +1,43 @@
 #include "ka_rs485.h"
 #include "logger.h"
 
-#include <unistd.h>
+#include <arpa/inet.h>
 #include <dlfcn.h>
-
+#include <unistd.h>
+#include <string.h>
 // #include <iostream>
 // #include <sstream>
 // #include <sys/ioctl.h>
 // #include <linux/serial.h>
 using namespace std;
+
+#define RS485_MSG_GET_POSITION_COMMAND_ALL_VALUES_REPLY 2
+
+#define RS485_MSG_GET_ACTUALPOSITION_REPLY 1
+#define RS485_MSG_FEEDTHROUGH_REPLY 1
+#define RS485_MSG_GET_POSITION_COMMAND_REPLY 1
+#define RS485_MSG_GET_DEVICE_INFO_REPLY 1
+#define RS485_MSG_GET_CODE_VERSION_REPLY 1
+#define RS485_MSG_GET_TEMPERATURE_REPLY 1
+#define RS485_MSG_SET_TEMPERATURE_REPLY 1
+#define RS485_GET_ENCODER_STATUSSES_REPLY 1
+#define RS485_MSG_SET_ADDRESS_REPLY 1
+#define RS485_MSG_CLEAR_FAULT_FLAG_REPLY 1
+#define RS485_MSG_STAR_ASSERV_REPLY 1
+#define RS485_MSG_STOP_ASSERV_REPLY 1
+#define RS485_MSG_POSITION_MAX_MIN_REPLY 1
+#define RS485_MSG_KP_GAIN_REPLY 1
+#define RS485_MSG_KI_KD_GAIN_REPLY 1
+#define RS485_MSG_PROGRAM_JOINT_ZERO_REPLY 1
+#define RS485_SET_PID_FILTERS_REPLY 1
+#define RS485_SET_ZERO_TORQUESENSOR_REPLY 1
+#define RS485_SET_GAIN_TORQUESENSOR_REPLY 1
+#define RS485_SET_CONTROL_WITH_ENCODER_REPLY 1
+#define RS485_SET_PID_ADVANCED_PARAMETERS_REPLY 1
+#define RS485_MSG_SPEED_ACCEL_MAX_REPLY 1
+#define RS485_MSG_CURRENT_TORQUE_MAX_REPLY 1
+
+#define GET_EXPECTED_REPLY(command) command##_REPLY
 
 namespace KinovaApi
 {
@@ -16,47 +45,94 @@ namespace KinovaApi
     {
     }
 
-    KaRS485Api::ApiStatus_t KaRS485Api::init(const bool &debug_log)
+    KaRS485Api::ApiStatus_t KaRS485Api::init(const bool &debug_log, const bool &enable_ethernet)
     {
         api_mutex_.lock();
 
-        LOG_INFO_STREAM("Initialize KaRS485Api instance... (debug logging : " << std::boolalpha << debug_log << ") ...");
+        LOG_INFO_STREAM("Initialize KaRS485Api instance... (debug logging : "
+                        << std::boolalpha << debug_log << ", ethernet : "
+                        << std::boolalpha << enable_ethernet << ") ...");
         if (debug_log == false)
         {
             Logger::instance().setLevel(Logger::ERROR);
         }
 
         LOG_INFO_STREAM("Load kinova shared library...");
-        //We load the API.
-        comm_handler = dlopen("Kinova.API.CommLayerUbuntu.so", RTLD_NOW|RTLD_GLOBAL);
-        if (comm_handler == NULL)
+        // We load the API.
+        if (enable_ethernet)
         {
-            LOG_ERROR_STREAM("Failed to load library with dlopen : " << dlerror() );
-            return API_INIT_ERROR;
+            comm_handler = dlopen("/opt/JACO-SDK/API/Kinova.API.EthCommLayerUbuntu.so", RTLD_NOW | RTLD_GLOBAL);
+        }
+        else
+        {
+            comm_handler = dlopen("Kinova.API.CommLayerUbuntu.so", RTLD_NOW | RTLD_GLOBAL);
         }
 
-        //Initialization of the fucntion pointers.
-        fcn_ptr_init = (int (*)()) dlsym(comm_handler,"InitCommunication");
-        fcn_ptr_activate = (int (*)()) dlsym(comm_handler,"OpenRS485_Activate");
-        fcn_ptr_read = (int (*)(RS485_Message* PackagesIn, int QuantityWanted, int &ReceivedQtyIn)) dlsym(comm_handler,"OpenRS485_Read");
-        fcn_ptr_write = (int (*)(RS485_Message* PackagesOut, int QuantityWanted, int &ReceivedQtyIn)) dlsym(comm_handler,"OpenRS485_Write");
-        fcn_ptr_close = (int(*)()) dlsym(comm_handler, "CloseCommunication");
-
-        if(fcn_ptr_init != NULL && fcn_ptr_activate != NULL && fcn_ptr_read != NULL && fcn_ptr_write != NULL)
+        if (comm_handler == NULL)
         {
-            // Initialization of the API
-            LOG_INFO("Initialization of the API...");
-            int result = fcn_ptr_init();
+            LOG_ERROR_STREAM("Failed to load library with dlopen : " << dlerror());
+            return API_INIT_ERROR;
+        }
+        fcn_ptr_init_eth = nullptr;
+        fcn_ptr_init = nullptr;
+        fcn_ptr_activate = nullptr;
+        fcn_ptr_read = nullptr;
+        fcn_ptr_write = nullptr;
+        fcn_ptr_close = nullptr;
+        // Initialization of the fucntion pointers.
+        if (enable_ethernet)
+        {
+            fcn_ptr_init_eth = (int (*)(EthernetCommConfig & config)) dlsym(comm_handler, "Ethernet_Communication_InitCommunicationEthernet");
+            fcn_ptr_activate = (int (*)())dlsym(comm_handler, "Ethernet_Communication_OpenRS485_Activate");
+            fcn_ptr_read = (int (*)(RS485_Message * PackagesIn, int QuantityWanted, int &ReceivedQtyIn)) dlsym(comm_handler, "Ethernet_Communication_OpenRS485_Read");
+            fcn_ptr_write = (int (*)(RS485_Message * PackagesOut, int QuantityWanted, int &ReceivedQtyIn)) dlsym(comm_handler, "Ethernet_Communication_OpenRS485_Write");
+            fcn_ptr_close = (int (*)())dlsym(comm_handler, "Ethernet_Communication_CloseCommunication");
+        }
+        else
+        {
+            fcn_ptr_init = (int (*)())dlsym(comm_handler, "InitCommunication");
+            fcn_ptr_activate = (int (*)())dlsym(comm_handler, "OpenRS485_Activate");
+            fcn_ptr_read = (int (*)(RS485_Message * PackagesIn, int QuantityWanted, int &ReceivedQtyIn)) dlsym(comm_handler, "OpenRS485_Read");
+            fcn_ptr_write = (int (*)(RS485_Message * PackagesOut, int QuantityWanted, int &ReceivedQtyIn)) dlsym(comm_handler, "OpenRS485_Write");
+            fcn_ptr_close = (int (*)())dlsym(comm_handler, "CloseCommunication");
+        }
 
-            if(result != NO_ERROR_KINOVA)
+        ethernet_conf.localBcastPort = 25015;
+        ethernet_conf.localCmdport = 25025;
+        ethernet_conf.robotPort = 55000;
+        ethernet_conf.localIpAddress = inet_addr("192.168.100.100");
+        ethernet_conf.robotIpAddress = inet_addr("192.168.100.10");
+        ethernet_conf.subnetMask = inet_addr("255.255.255.0");
+        ethernet_conf.rxTimeOutInMs = 1000;
+
+        // Initialization of the API
+        LOG_INFO("Initialization of the API...");
+        if (((enable_ethernet && fcn_ptr_init_eth != NULL) || fcn_ptr_init != NULL) && fcn_ptr_activate != NULL && fcn_ptr_read != NULL && fcn_ptr_write != NULL)
+        {
+            int result;
+            if (enable_ethernet)
+            {
+                result = fcn_ptr_init_eth(ethernet_conf);
+            }
+            else
+            {
+                result = fcn_ptr_init();
+            }
+
+            if (result != NO_ERROR_KINOVA)
             {
                 LOG_ERROR_STREAM("Initialization communication error : " << result);
                 return API_INIT_ERROR;
             }
-            //We activate the RS-485 comm API. From here you cannot control the robot with the Joystick or
-            //with the normal USB function. Only RS-485 command will be accepted. Reboot the robot to get
-            //back to normal control.
+            // We activate the RS-485 comm API. From here you cannot control the robot with the Joystick or
+            // with the normal USB function. Only RS-485 command will be accepted. Reboot the robot to get
+            // back to normal control.
             fcn_ptr_activate();
+        }
+        else
+        {
+            LOG_ERROR_STREAM("Not all function pointer are initialized !");
+            return API_INIT_ERROR;
         }
         LOG_INFO_STREAM("Done");
 
@@ -75,7 +151,7 @@ namespace KinovaApi
             bool transmission_ok = false;
             // comm_.commLayerWrite(writeMessage, 1, nb_msg_sent);
             LOG_DEBUG_STREAM("Write RS485 message...");
-            fcn_ptr_write((RS485_Message*)writeMessage, 1, nb_msg_sent);            
+            fcn_ptr_write((RS485_Message *)writeMessage, 1, nb_msg_sent);
             LOG_DEBUG_STREAM("Done");
 
             if (nb_msg_sent != 1)
@@ -90,16 +166,16 @@ namespace KinovaApi
 
             for (int j = 0; j < MAX_READ_RETRY; j++)
             {
-                // comm_.commLayerRead(readMessage, expectedResponseMsg, nb_msg_read);
-                fcn_ptr_read((RS485_Message*)readMessage, expectedResponseMsg, nb_msg_read);
+                RS485_Message dummy_rcv_msg[50] = {};
+                fcn_ptr_read(dummy_rcv_msg, expectedResponseMsg, nb_msg_read);
                 if (nb_msg_read != expectedResponseMsg)
                 {
                     /* Try to receive message again */
                     usleep(2);
-                    LOG_DEBUG_STREAM("Fail to read message (nb_msg_read=" << nb_msg_read << ")");
+                    LOG_DEBUG_STREAM("Fail to read message (nb_msg_read=" << nb_msg_read << ", expected : " << expectedResponseMsg << ")");
                     continue;
                 }
-
+                memcpy(readMessage, &dummy_rcv_msg, expectedResponseMsg * sizeof(RS485_Message));
                 LOG_DEBUG_STREAM("Message successfully write and reply read");
                 transmission_ok = true;
                 break;
@@ -121,46 +197,6 @@ namespace KinovaApi
         return API_OK;
     }
 
-    const int KaRS485Api::getExpectedReply_(uint16_t command)
-    {
-        switch (command)
-        {
-        case RS485_MSG_GET_POSITION_COMMAND_ALL_VALUES:
-            return 2;
-            break;
-
-        case RS485_MSG_GET_ACTUALPOSITION:
-        case RS485_MSG_FEEDTHROUGH:
-        case RS485_MSG_GET_POSITION_COMMAND:
-        case RS485_MSG_GET_DEVICE_INFO:
-        case RS485_MSG_GET_CODE_VERSION:
-        case RS485_MSG_GET_TEMPERATURE:
-        case RS485_MSG_SET_TEMPERATURE:
-        case RS485_GET_ENCODER_STATUSSES:
-        case RS485_MSG_SET_ADDRESS:
-        case RS485_MSG_CLEAR_FAULT_FLAG:
-        case RS485_MSG_STAR_ASSERV:
-        case RS485_MSG_STOP_ASSERV:
-        case RS485_MSG_POSITION_MAX_MIN:
-        case RS485_MSG_KP_GAIN:
-        case RS485_MSG_KI_KD_GAIN:
-        case RS485_MSG_PROGRAM_JOINT_ZERO:
-        case RS485_SET_PID_FILTERS:
-        case RS485_SET_ZERO_TORQUESENSOR:
-        case RS485_SET_GAIN_TORQUESENSOR:
-        case RS485_SET_CONTROL_WITH_ENCODER:
-        case RS485_SET_PID_ADVANCED_PARAMETERS:
-        case RS485_MSG_SPEED_ACCEL_MAX:
-        case RS485_MSG_CURRENT_TORQUE_MAX:
-            return 1;
-            break;
-
-        default:
-            return 0;
-            break;
-        }
-    }
-
     KaRS485Api::ApiStatus_t
     KaRS485Api::deviceInitialisation(const uint16_t &jointAddress, float &jointPosition)
     {
@@ -176,7 +212,7 @@ namespace KinovaApi
         msgWrite.DataLong[2] = 0;
         msgWrite.DataLong[3] = 0;
 
-        status = readWrite_(&msgWrite, &msgRead, getExpectedReply_(RS485_MSG_SET_ADDRESS));
+        status = readWrite_(&msgWrite, &msgRead, GET_EXPECTED_REPLY(RS485_MSG_SET_ADDRESS));
         if (status != API_OK)
         {
             api_mutex_.unlock();
@@ -203,7 +239,7 @@ namespace KinovaApi
         msgWrite.DataLong[2] = 0;
         msgWrite.DataLong[3] = 0;
 
-        status = readWrite_(&msgWrite, &msgRead, getExpectedReply_(RS485_MSG_CLEAR_FAULT_FLAG));
+        status = readWrite_(&msgWrite, &msgRead, GET_EXPECTED_REPLY(RS485_MSG_CLEAR_FAULT_FLAG));
         if (status != API_OK)
         {
             api_mutex_.unlock();
@@ -229,7 +265,7 @@ namespace KinovaApi
         msgWrite.DataLong[2] = 0;
         msgWrite.DataLong[3] = 0;
 
-        status = readWrite_(&msgWrite, &msgRead, getExpectedReply_(RS485_MSG_STAR_ASSERV));
+        status = readWrite_(&msgWrite, &msgRead, GET_EXPECTED_REPLY(RS485_MSG_STAR_ASSERV));
         if (status != API_OK)
         {
             api_mutex_.unlock();
@@ -255,7 +291,7 @@ namespace KinovaApi
         msgWrite.DataLong[2] = 0;
         msgWrite.DataLong[3] = 0;
 
-        status = readWrite_(&msgWrite, &msgRead, getExpectedReply_(RS485_MSG_STOP_ASSERV));
+        status = readWrite_(&msgWrite, &msgRead, GET_EXPECTED_REPLY(RS485_MSG_STOP_ASSERV));
         if (status != API_OK)
         {
             api_mutex_.unlock();
@@ -281,7 +317,7 @@ namespace KinovaApi
         msgWrite.DataLong[2] = 0;
         msgWrite.DataLong[3] = 0;
 
-        status = readWrite_(&msgWrite, &msgRead, getExpectedReply_(RS485_MSG_GET_ACTUALPOSITION));
+        status = readWrite_(&msgWrite, &msgRead, GET_EXPECTED_REPLY(RS485_MSG_GET_ACTUALPOSITION));
         if (status != API_OK)
         {
             api_mutex_.unlock();
@@ -298,8 +334,8 @@ namespace KinovaApi
 
     KaRS485Api::ApiStatus_t
     KaRS485Api::setCommandAllValue(const uint16_t &jointAddress, const float &jointCommand, float &jointCurrent, float &jointPositionHall,
-                                 float &jointSpeed, float &jointTorque, float &jointPMW, float &jointPositionOptical,
-                                 short &jointAccelX, short &jointAccelY, short &jointAccelZ, short &jointTemp)
+                                   float &jointSpeed, float &jointTorque, float &jointPMW, float &jointPositionOptical,
+                                   short &jointAccelX, short &jointAccelY, short &jointAccelZ, short &jointTemp)
     {
         api_mutex_.lock();
 
@@ -313,7 +349,7 @@ namespace KinovaApi
         msgWrite.DataLong[2] = 0;
         msgWrite.DataLong[3] = 0;
 
-        status = readWrite_(&msgWrite, &msgRead[0], getExpectedReply_(RS485_MSG_GET_POSITION_COMMAND_ALL_VALUES));
+        status = readWrite_(&msgWrite, &msgRead[0], GET_EXPECTED_REPLY(RS485_MSG_GET_POSITION_COMMAND_ALL_VALUES));
         if (status != API_OK)
         {
             api_mutex_.unlock();
@@ -337,7 +373,7 @@ namespace KinovaApi
 
     KaRS485Api::ApiStatus_t
     KaRS485Api::setPositionCommand(const uint16_t &jointAddress, const float &jointCommand, float &jointCurrent, float &jointPositionHall,
-                                 float &jointSpeed, float &jointTorque)
+                                   float &jointSpeed, float &jointTorque)
     {
         api_mutex_.lock();
 
@@ -351,7 +387,7 @@ namespace KinovaApi
         msgWrite.DataLong[2] = 0;
         msgWrite.DataLong[3] = 0;
 
-        status = readWrite_(&msgWrite, &msgRead[0], getExpectedReply_(RS485_MSG_GET_POSITION_COMMAND));
+        status = readWrite_(&msgWrite, &msgRead[0], GET_EXPECTED_REPLY(RS485_MSG_GET_POSITION_COMMAND));
         if (status != API_OK)
         {
             api_mutex_.unlock();

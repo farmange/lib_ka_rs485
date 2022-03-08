@@ -7,7 +7,7 @@ set (lib_ka_rs485_VERSION_MINOR 1)
 set (lib_ka_rs485_VERSION_PATCH 0)
 set (lib_ka_rs485_VERSION ${lib_ka_rs485_VERSION_MAJOR}.${lib_ka_rs485_VERSION_MINOR}.${lib_ka_rs485_VERSION_PATCH})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Werror -std=c++11")
 
 add_subdirectory (src)
 

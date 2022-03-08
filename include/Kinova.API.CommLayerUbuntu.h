@@ -23,79 +23,79 @@
 
 // ***** E R R O R   C O D E S ******
 
-//No error, everything is fine.
+// No error, everything is fine.
 #define NO_ERROR_KINOVA 1
 
-//We know that an error has occured but we don't know where it comes from.
+// We know that an error has occured but we don't know where it comes from.
 #define UNKNOWN_ERROR 666
 
-//Unable to load the USB library.
+// Unable to load the USB library.
 #define ERROR_LOAD_USB_LIBRARY 1001
 
-//Unable to access the Open method from the USB library.
+// Unable to access the Open method from the USB library.
 #define ERROR_OPEN_METHOD 1002
 
-//Unable to access the Write method from the USB library.
+// Unable to access the Write method from the USB library.
 #define ERROR_WRITE_METHOD 1003
 
-//Unable to access the Read method from the USB library.
+// Unable to access the Read method from the USB library.
 #define ERROR_READ_METHOD 1004
 
-//Unable to access the Read Int method from the USB library.
+// Unable to access the Read Int method from the USB library.
 #define ERROR_READ_INT_METHOD 1005
 
-//Unable to access the Free Library method from the USB library.
+// Unable to access the Free Library method from the USB library.
 #define ERROR_FREE_LIBRARY 1006
 
-//There is a problem with the USB connection between the device and the computer.
+// There is a problem with the USB connection between the device and the computer.
 #define ERROR_JACO_CONNECTION 1007
 
-//Unable to claim the USB interface.
+// Unable to claim the USB interface.
 #define ERROR_CLAIM_INTERFACE 1008
 
-//Unknown type of device.
+// Unknown type of device.
 #define ERROR_UNKNOWN_DEVICE 1009
 
-//The functionality you are trying to use has not been initialized.
+// The functionality you are trying to use has not been initialized.
 #define ERROR_NOT_INITIALIZED 1010
 
-//The USB library cannot find the device.
+// The USB library cannot find the device.
 #define ERROR_LIBUSB_NO_DEVICE 1011
 
-//The USB Library is bussy and could not perform the action.
+// The USB Library is bussy and could not perform the action.
 #define ERROR_LIBUSB_BUSY 1012
 
-//The functionality you are trying to perform is not supported by the version installed.
+// The functionality you are trying to perform is not supported by the version installed.
 #define ERROR_LIBUSB_NOT_SUPPORTED 1013
 
-//Unknown error while sending a packet.
+// Unknown error while sending a packet.
 #define ERROR_SENDPACKET_UNKNOWN 1014
 
-//Cannot find the requested device.
+// Cannot find the requested device.
 #define ERROR_NO_DEVICE_FOUND 1015
 
-//The operation was not entirely completed :)
+// The operation was not entirely completed :)
 #define ERROR_OPERATION_INCOMPLETED 1016
 
-//Handle used is not valid.
+// Handle used is not valid.
 #define ERROR_RS485_INVALID_HANDLE 1017
 
-//An overlapped I/O operation is in progress but has not completed.
+// An overlapped I/O operation is in progress but has not completed.
 #define ERROR_RS485_IO_PENDING 1018
 
-//Not enough memory to complete the opreation.
+// Not enough memory to complete the opreation.
 #define ERROR_RS485_NOT_ENOUGH_MEMORY 1019
 
-//The operation has timed out.
+// The operation has timed out.
 #define ERROR_RS485_TIMEOUT 1020
 
-//You are trying to call a USB function that is not available in the current context.
+// You are trying to call a USB function that is not available in the current context.
 #define ERROR_FUNCTION_NOT_ACCESSIBLE 1021
 
-//No response timeout reached
+// No response timeout reached
 #define ERROR_COMM_TIMEOUT 1022
 
-//If the robot answered a NACK to our command
+// If the robot answered a NACK to our command
 #define ERROR_NACK_RECEIVED 9999
 
 // ***** E N D  O F  E R R O R   C O D E S ******
@@ -218,38 +218,38 @@ gains Kp, Ki and Kd must be set to zero first. */
 
 // ***** E N D   O F  R S - 4 8 5   C O M M A N D   I D   L I S T ******
 
-//Time out in ms.
+// Time out in ms.
 #define COMMUNICATION_TIME_OUT 5000
 
-//Total size of our packet in bytes.
+// Total size of our packet in bytes.
 #define PACKET_SIZE 64
 #define ETH_PACKET_SIZE 1464
 
-//Data's size of a single packet.
+// Data's size of a single packet.
 #define PACKET_DATA_SIZE 56
 #define ETH_PACKET_DATA_SIZE 1456
-#define PACKET_MAX_DATA_SIZE 1456 //the bigest of the packet (eth or USB)
+#define PACKET_MAX_DATA_SIZE 1456 // the bigest of the packet (eth or USB)
 
-//Header's size of a packet.
+// Header's size of a packet.
 #define PACKET_HEADER_SIZE 8
 #define ETH_PACKET_HEADER_SIZE 10
 
-//Version of this library.
+// Version of this library.
 #define COMM_LAYER_VERSION 10003
 
-//Max character count in our string.
+// Max character count in our string.
 #define SERIAL_LENGTH 20
 
-//The maximum devices count that the API can control.
+// The maximum devices count that the API can control.
 #define MAX_KINOVA_DEVICE 20
 
-//Size of a RS485 message in bytes.
+// Size of a RS485 message in bytes.
 #define RS485_MESSAGE_SIZE 20
 
-//Max Qty of RS-485 message hold by a USB packet.
+// Max Qty of RS-485 message hold by a USB packet.
 #define RS485_MESSAGE_MAX_COUNT 3
 
-//That represents a packet. As a developper you don't have to use this structure
+// That represents a packet. As a developper you don't have to use this structure
 struct Packet
 {
 	short IdPacket;
@@ -259,47 +259,47 @@ struct Packet
 	unsigned char Data[PACKET_MAX_DATA_SIZE];
 };
 
-//That is simply a list of packet
+// That is simply a list of packet
 struct PacketList
 {
 	std::vector<Packet> packets;
 };
 
-//That is a device you can communicate with via this library.
+// That is a device you can communicate with via this library.
 struct KinovaDevice
 {
-	//The serial number of the device. If you are communicating with more than 1 device, this will be used to identify
-	//the devices.
+	// The serial number of the device. If you are communicating with more than 1 device, this will be used to identify
+	// the devices.
 	char SerialNumber[SERIAL_LENGTH];
 
-	//The model of the device.
+	// The model of the device.
 	char Model[SERIAL_LENGTH];
 
-	//Those variables represents the code version - Major.Minor.Release
+	// Those variables represents the code version - Major.Minor.Release
 	int VersionMajor;
 	int VersionMinor;
 	int VersionRelease;
 
-	//The type of the device.
+	// The type of the device.
 	int DeviceType;
 
-	//This is a device ID used by the API. User should not use it.
+	// This is a device ID used by the API. User should not use it.
 	int DeviceID;
 };
 
-//This structure represents a RS-485 message
+// This structure represents a RS-485 message
 struct RS485_Message
 {
-	//Command ID of the message. Use #define from the COMMAND ID LIST above.
+	// Command ID of the message. Use #define from the COMMAND ID LIST above.
 	short Command;
 
-	//Source of the message. If this is an actuator, it will be an address.
+	// Source of the message. If this is an actuator, it will be an address.
 	unsigned char SourceAddress;
 
-	//Destination of the message. Use the address of the actuator.
+	// Destination of the message. Use the address of the actuator.
 	unsigned char DestinationAddress;
 
-	//Data of the message displayed as unsigned char, float or unsigned long.
+	// Data of the message displayed as unsigned char, float or unsigned long.
 	union
 	{
 		unsigned char DataByte[16];

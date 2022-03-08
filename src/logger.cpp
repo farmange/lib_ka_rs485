@@ -136,6 +136,7 @@ namespace KinovaApi
 
     void Logger::setLevel(logging_level_t level)
     {
+        LOG_INFO_STREAM("Log level set to: " << level);
         level_ = level;
     }
 
