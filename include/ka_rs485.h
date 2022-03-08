@@ -67,6 +67,7 @@ namespace KinovaApi
         virtual ~KaRS485Api(){};
         ApiStatus_t init(const bool &debug_log = false, const bool &enable_ethernet = false);
         ApiStatus_t deviceInitialisation(const uint16_t &jointAddress, float &jointPosition);
+        ApiStatus_t setAddress(const uint16_t &jointAddress, const uint16_t &newJointAddress, float &jointPosition);
         ApiStatus_t clearError(const uint16_t &jointAddress);
         ApiStatus_t startMotorControl(const uint16_t &jointAddress);
         ApiStatus_t stopMotorControl(const uint16_t &jointAddress);

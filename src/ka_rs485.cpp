@@ -145,6 +145,7 @@ namespace KinovaApi
     {
         int nb_msg_sent = 0;
         int nb_msg_read = 0;
+        int msg_receive_count = 0;
 
         for (int i = 0; i < MAX_WRITE_RETRY; i++)
         {
@@ -163,22 +164,37 @@ namespace KinovaApi
             }
 
             usleep(50);
-
+            msg_receive_count = 0;
+            RS485_Message dummy_rcv_msg[56] = {};
+            // RS485_Message full_rcv_msg[50] = {};
             for (int j = 0; j < MAX_READ_RETRY; j++)
             {
-                RS485_Message dummy_rcv_msg[50] = {};
-                fcn_ptr_read(dummy_rcv_msg, expectedResponseMsg, nb_msg_read);
-                if (nb_msg_read != expectedResponseMsg)
+                fcn_ptr_read(dummy_rcv_msg + msg_receive_count, expectedResponseMsg, nb_msg_read);
+                if (nb_msg_read == 0)
                 {
                     /* Try to receive message again */
+                    LOG_DEBUG_STREAM("Nothing to read (" << nb_msg_read << "/" << expectedResponseMsg << ")");
                     usleep(2);
-                    LOG_DEBUG_STREAM("Fail to read message (nb_msg_read=" << nb_msg_read << ", expected : " << expectedResponseMsg << ")");
                     continue;
                 }
-                memcpy(readMessage, &dummy_rcv_msg, expectedResponseMsg * sizeof(RS485_Message));
-                LOG_DEBUG_STREAM("Message successfully write and reply read");
-                transmission_ok = true;
-                break;
+                else
+                {
+                    // memcpy(full_rcv_msg + msg_receive_count, &dummy_rcv_msg, nb_msg_read * sizeof(RS485_Message));
+                    msg_receive_count += nb_msg_read;
+                }
+
+                if (msg_receive_count == expectedResponseMsg)
+                {
+                    memcpy(readMessage, &dummy_rcv_msg, expectedResponseMsg * sizeof(RS485_Message));
+                    LOG_DEBUG_STREAM("Message successfully write and reply read");
+                    transmission_ok = true;
+                    break;
+                }
+                else
+                {
+                    LOG_DEBUG_STREAM("Message not fully received at " << j << " iteration (" << msg_receive_count << "/" << expectedResponseMsg << ")");
+                    usleep(2);
+                }
             }
             if (transmission_ok)
             {
@@ -189,7 +205,7 @@ namespace KinovaApi
         {
             return API_WRITE_ERROR;
         }
-        if (nb_msg_read != expectedResponseMsg)
+        if (msg_receive_count != expectedResponseMsg)
         {
             return API_READ_ERROR;
         }
@@ -209,6 +225,33 @@ namespace KinovaApi
         msgWrite.DestinationAddress = jointAddress;
         msgWrite.DataLong[0] = jointAddress;
         msgWrite.DataLong[1] = 0;
+        msgWrite.DataLong[2] = 0;
+        msgWrite.DataLong[3] = 0;
+
+        status = readWrite_(&msgWrite, &msgRead, GET_EXPECTED_REPLY(RS485_MSG_SET_ADDRESS));
+        if (status != API_OK)
+        {
+            api_mutex_.unlock();
+            return status;
+        }
+        jointPosition = msgRead.DataFloat[1];
+        api_mutex_.unlock();
+
+        return API_OK;
+    }
+
+    KaRS485Api::ApiStatus_t
+    KaRS485Api::setAddress(const uint16_t &jointAddress, const uint16_t &newJointAddress, float &jointPosition)
+    {
+        api_mutex_.lock();
+
+        ApiStatus_t status;
+        CommLayer::message_t msgWrite, msgRead;
+        msgWrite.Command = RS485_MSG_SET_ADDRESS;
+        msgWrite.SourceAddress = 0x00;
+        msgWrite.DestinationAddress = jointAddress;
+        msgWrite.DataLong[0] = newJointAddress;
+        msgWrite.DataLong[1] = 1;
         msgWrite.DataLong[2] = 0;
         msgWrite.DataLong[3] = 0;
 
